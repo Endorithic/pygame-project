@@ -1,5 +1,9 @@
 # Python standard library modules:
+import os
 import random
+
+# Set environment variable to disable Pygame welcome statement
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 
 # Third party modules:
 import pygame as pg
@@ -8,6 +12,7 @@ from pygame.sprite import Group, Sprite
 
 # Project modules
 import colors
+import theme_loader as tl
 from levels import LEVELS, Level
 
 # Set screen dimensions
@@ -24,11 +29,26 @@ CHARGES_PER_BOTTLE: int = 5
 START_VIRUSES: int = 5
 VIRUSES_PER_LEVEL: int = 3
 
+# Loads all the available themes
+themes: list[tl.Theme] = tl.load_themes()
+
+# Prompts the user until a theme is selected
+has_theme: bool = False
+while not has_theme:
+    # Print all the themes
+    print("THEME SELECTOR")
+    for i, theme in enumerate(themes):
+        print(f"{i}: {theme.name}")
+
+    # Prompt the user to select theme
+    selected: int = int(input("Select theme: "))
+
 # Initialize pygame
 pg.init()
 
 # Create the fonts used in the game
 font_40: Font = pg.font.SysFont("Segoe UI", 40, False, False)
+font_20_b: Font = pg.font.SysFont("Segoe UI", 20, True, False)
 
 # Create the window
 screen: Surface = pg.display.set_mode(DIMENSIONS)
@@ -109,7 +129,9 @@ class Player(Sprite):
         if wall_hit_list:
             # If the wall does not have a rect, throw an error
             if not (collision_rect := wall_hit_list[0].rect):
-                raise RuntimeError("Player collided with a wall that does not have a valid 'rect' attribute.")
+                raise RuntimeError(
+                    "Player collided with a wall that does not have a valid 'rect' attribute."
+                )
 
             # Use the player direction to determine where to place the player
             if self.vx > 0:
@@ -125,7 +147,9 @@ class Player(Sprite):
         if wall_hit_list:
             # If the wall does not have a rect, throw an error
             if not (collision_rect := wall_hit_list[0].rect):
-                raise RuntimeError("Player collided with a wall that does not have a valid 'rect' attribute.")
+                raise RuntimeError(
+                    "Player collided with a wall that does not have a valid 'rect' attribute."
+                )
 
             # Use the player direction to determine where to place the player
             if self.vy > 0:
@@ -134,7 +158,9 @@ class Player(Sprite):
                 self.rect.top = collision_rect.bottom
 
         # Checks to see if the player has collided with a bottle of antibac and adds 5 charges if so
-        bottle_hit_list: list[Sprite] = pg.sprite.spritecollide(self, bottle_group, True)
+        bottle_hit_list: list[Sprite] = pg.sprite.spritecollide(
+            self, bottle_group, True
+        )
         if bottle_hit_list:
             self.antibac_count += CHARGES_PER_BOTTLE
 
@@ -149,7 +175,8 @@ class Player(Sprite):
             level_number += 1
 
             # Reset the level state
-            restart() # noqa # ty: ignore
+            restart()  # noqa # ty: ignore
+
 
 # The virus class
 class Virus(Sprite):
@@ -182,7 +209,9 @@ class Virus(Sprite):
         if wall_hit_list:
             # If the wall does not have a rect, throw an error
             if not (collision_rect := wall_hit_list[0].rect):
-                raise RuntimeError("Virus collided with a wall that does not have a valid 'rect' attribute.")
+                raise RuntimeError(
+                    "Virus collided with a wall that does not have a valid 'rect' attribute."
+                )
 
             # Use the player direction to determine where to place the player
             if self.vx > 0:
@@ -201,7 +230,9 @@ class Virus(Sprite):
         if wall_hit_list:
             # If the wall does not have a rect, throw an error
             if not (collision_rect := wall_hit_list[0].rect):
-                raise RuntimeError("Virus collided with a wall that does not have a valid 'rect' attribute.")
+                raise RuntimeError(
+                    "Virus collided with a wall that does not have a valid 'rect' attribute."
+                )
 
             # Use the player direction to determine where to place the player
             if self.vy > 0:
@@ -218,6 +249,7 @@ class Virus(Sprite):
         if self.rect.y + 32 > HEIGHT or self.rect.y < 0:
             self.vy *= -1
 
+
 # The antibac class (splat, not the bottle)
 class Antibac(Sprite):
     # Class initializer
@@ -230,6 +262,7 @@ class Antibac(Sprite):
         self.rect: Rect = self.image.get_rect()
         self.rect.x: int = x
         self.rect.y: int = y
+
 
 # The wall class
 class Wall(Sprite):
@@ -244,6 +277,7 @@ class Wall(Sprite):
         self.rect.x: int = x
         self.rect.y: int = y
 
+
 # The bottle class
 class Bottle(Sprite):
     # Class initializer
@@ -257,6 +291,7 @@ class Bottle(Sprite):
         self.rect.x: int = x
         self.rect.y: int = y
 
+
 # The exit class
 class Exit(Sprite):
     # Class initializer
@@ -269,6 +304,7 @@ class Exit(Sprite):
         self.rect: Rect = self.image.get_rect()
         self.rect.x: int = x
         self.rect.y: int = y
+
 
 # Resets the level state and restarts
 def restart(player: Player) -> None:
@@ -328,6 +364,19 @@ def restart(player: Player) -> None:
         global game_finished
         game_finished = True
 
+
+# Render the text for the antibac count
+count_text: Surface = font_20_b.render("Antibac: 0", True, colors.BLACK)
+count_rect: Rect = count_text.get_rect()
+
+# Position the antibac counter
+count_rect.top = count_rect.height // 2
+count_rect.right = WIDTH - count_rect.width // 2 + 30
+
+# Keep track of the last time the counter was rendered so we won't need to re-render each frame
+last_rendered: int = 0
+
+
 # Create the player instance
 player: Player = Player()
 player_group.add(player)
@@ -360,10 +409,11 @@ while is_running:
 
     # Check for collision with virus
     player_hit: dict[Sprite, list[Sprite]] = pg.sprite.groupcollide(
-        player_group, virus_group,
-        True, # The player should be removed on death
-        False, # But not the virus
-        pg.sprite.collide_mask # ty: ignore
+        player_group,
+        virus_group,
+        False,  # The player should not be removed on death
+        False,  # Nor should the virus
+        pg.sprite.collide_mask,
     )
 
     # If collision is detected, the player has lost
@@ -372,10 +422,11 @@ while is_running:
 
     # Check for virus collision with antibac
     virus_hit: dict[Sprite, list[Sprite]] = pg.sprite.groupcollide(
-        virus_group, antibac_group,
-        True, # The virus should be removed on contact
-        True, # So should the antibac
-        pg.sprite.collide_mask # ty: ignore
+        virus_group,
+        antibac_group,
+        True,  # The virus should be removed on contact
+        True,  # So should the antibac
+        pg.sprite.collide_mask,
     )
 
     # Update all the sprites
@@ -393,6 +444,21 @@ while is_running:
     bottle_group.draw(screen)
     wall_group.draw(screen)
 
+    # If the antibac count changed since last render, render again
+    if player.antibac_count != last_rendered:
+        # Render the text for the antibac count
+        count_text: Surface = font_20_b.render(
+            f"Antibac: {player.antibac_count}", True, colors.BLACK
+        )
+        count_rect: Rect = count_text.get_rect()
+
+        # Position the antibac counter
+        count_rect.top = count_rect.height // 2
+        count_rect.right = WIDTH - count_rect.width // 2 + 30
+
+    # Draw the current antibac count to the screen
+    screen.blit(count_text, count_rect)
+
     # If the game is over, show the gameover text
     if gameover:
         screen.blit(gameover_text, gameover_rect)
@@ -407,17 +473,21 @@ while is_running:
 
     # Handle events
     for event in pg.event.get():
+        # If the window receives a 'quit' event, stop the game loop.
         if event.type == pg.QUIT:
             is_running = False
 
         # Runs if the player releases a key
         if event.type == pg.KEYUP:
             # Only runs if the player has a non-zero antibac count
-            if player.antibac_count > 0:
+            if player.antibac_count > 0 and not gameover:
                 # If the key released is 'L', place antibac
                 if event.key == pg.K_l:
                     antibac: Antibac = Antibac(int(player.rect.x), int(player.rect.y))
                     antibac_group.add(antibac)
+
+                    # Decrement the antibac counter
+                    player.antibac_count -= 1
 
             # If the player pressed 'N', start a new game
             if event.key == pg.K_n:
