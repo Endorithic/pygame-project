@@ -1,4 +1,4 @@
-# Import standard library files
+# Import standard library modules
 from pathlib import Path
 
 # Contains all the necessary assets a theme must have to be valid

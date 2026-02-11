@@ -1,3 +1,7 @@
+# ===========================================
+# Module importing
+# ===========================================
+
 # Python standard library modules:
 import os
 import random
@@ -9,34 +13,24 @@ os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 # Third party modules:
 import pygame as pg
 from pygame import Clock, Font, Rect, Surface
+from pygame.key import ScancodeWrapper
 from pygame.sprite import Group, Sprite
 
 # Project modules
 import colors
-import theme_loader as tl
+import config
 from levels import LEVELS, Level
+from theme_loader import Theme, load_themes
 
-# Set screen dimensions
-WIDTH: int = 800
-HEIGHT: int = 608
-DIMENSIONS: tuple[int, int] = (WIDTH, HEIGHT)
-
-# Set screen properties
-TARGET_FPS: int = 60
-BGCOLOR: colors.Color = colors.WHITE
-
-# Set game properties
-CHARGES_PER_BOTTLE: int = 5
-START_VIRUSES: int = 5
-VIRUSES_PER_LEVEL: int = 3
-VIRUS_MIN_SPEED: int = 1
-VIRUS_MAX_SPEED: int = 5
+# ===========================================
+# Theme loading
+# ===========================================
 
 # Loads all the available themes
-themes: list[tl.Theme] = tl.load_themes()
+themes: list[Theme] = load_themes()
 
 # Declare the variable for the held theme
-loaded_theme: tl.Theme
+loaded_theme: Theme
 
 # Checks to see that a theme is indeed loaded
 if len(themes) < 1:
@@ -44,8 +38,7 @@ if len(themes) < 1:
     exit()
 
 # Prompts the user until a theme is selected
-has_theme: bool = False
-while not has_theme:
+while True:
     # Print all the themes
     print("THEME SELECTOR")
     for i, theme in enumerate(themes):
@@ -56,11 +49,15 @@ while not has_theme:
 
     # If the selected number is valid, load the theme
     if 0 <= selected < len(themes):
-        loaded_theme: tl.Theme = themes[selected]
-        has_theme = True
+        loaded_theme: Theme = themes[selected]
+        break
 
 # Get the theme asset dictionary
 assets: dict[str, Path] = loaded_theme.assets
+
+# ===========================================
+# Application initialization
+# ===========================================
 
 # Initialize pygame
 pg.init()
@@ -70,7 +67,7 @@ font_40: Font = pg.font.SysFont("Segoe UI", 40, False, False)
 font_30_b: Font = pg.font.SysFont("Segoe UI", 30, True, False)
 
 # Create the window
-screen: Surface = pg.display.set_mode(DIMENSIONS)
+screen: Surface = pg.display.set_mode(config.DIMENSIONS)
 pg.display.set_caption("Viral Breakout")
 
 # Create the clock to keep track of framerate
@@ -97,15 +94,19 @@ exit_group: Group[Sprite] = Group()
 # Render the text snippets used in the game
 gameover_text: Surface = font_40.render("Game over.", True, colors.RED)
 gameover_rect: Rect = gameover_text.get_rect()
-gameover_rect.center = (WIDTH // 2, HEIGHT // 2)
+gameover_rect.center = (config.WIDTH // 2, config.HEIGHT // 2)
 
 level_complete_text: Surface = font_40.render("Level complete!", True, colors.GREEN)
 level_complete_rect: Rect = level_complete_text.get_rect()
-level_complete_rect.center = (WIDTH // 2, HEIGHT // 2)
+level_complete_rect.center = (config.WIDTH // 2, config.HEIGHT // 2)
 
 complete_text: Surface = font_40.render("Victory! :3", True, colors.BLUE)
 complete_text_rect: Rect = level_complete_text.get_rect()
-complete_text_rect.center = (WIDTH // 2, HEIGHT // 2)
+complete_text_rect.center = (config.WIDTH // 2, config.HEIGHT // 2)
+
+# ===========================================
+# Sprite classes
+# ===========================================
 
 
 # The player class
@@ -181,7 +182,7 @@ class Player(Sprite):
             self, bottle_group, True
         )
         if bottle_hit_list:
-            self.antibac_count += CHARGES_PER_BOTTLE
+            self.antibac_count += config.CHARGES_PER_BOTTLE
 
         # Checks to see if player collided with an exit
         exit_hit_list: list[Sprite] = pg.sprite.spritecollide(self, exit_group, True)
@@ -263,9 +264,9 @@ class Virus(Sprite):
             self.vy *= -1
 
         # Check for OOB
-        if self.rect.x + 32 > WIDTH or self.rect.x < 0:
+        if self.rect.x + 32 > config.WIDTH or self.rect.x < 0:
             self.vx *= -1
-        if self.rect.y + 32 > HEIGHT or self.rect.y < 0:
+        if self.rect.y + 32 > config.HEIGHT or self.rect.y < 0:
             self.vy *= -1
 
 
@@ -325,6 +326,11 @@ class Exit(Sprite):
         self.rect.y: int = y
 
 
+# ===========================================
+# Game functions
+# ===========================================
+
+
 # Resets the level state and restarts
 def restart(player: Player) -> None:
     # If the player instance does not have a valid 'rect' attribute, throw an error
@@ -352,11 +358,11 @@ def restart(player: Player) -> None:
     player.reset()
 
     # Generate the viruses
-    for i in range(START_VIRUSES + level_number * VIRUSES_PER_LEVEL):
-        start_x: int = random.randint(0, WIDTH)
-        start_y: int = random.randint(0, HEIGHT)
-        start_vx: int = random.randint(VIRUS_MIN_SPEED, VIRUS_MAX_SPEED)
-        start_vy: int = random.randint(VIRUS_MIN_SPEED, VIRUS_MAX_SPEED)
+    for i in range(config.START_VIRUSES + level_number * config.VIRUSES_PER_LEVEL):
+        start_x: int = random.randint(0, config.WIDTH)
+        start_y: int = random.randint(0, config.HEIGHT)
+        start_vx: int = random.randint(config.VIRUS_MIN_SPEED, config.VIRUS_MAX_SPEED)
+        start_vy: int = random.randint(config.VIRUS_MIN_SPEED, config.VIRUS_MAX_SPEED)
 
         virus: Virus = Virus(start_x, start_y, start_vx, start_vy)
         virus_group.add(virus)
@@ -384,13 +390,17 @@ def restart(player: Player) -> None:
         game_finished = True
 
 
+# ===========================================
+# Game initializaton
+# ===========================================
+
 # Render the text for the antibac count
 count_text: Surface = font_30_b.render("Antibac: 0", True, colors.BLACK)
 count_rect: Rect = count_text.get_rect()
 
 # Position the antibac counter
 count_rect.top = count_rect.height // 2
-count_rect.right = WIDTH - count_rect.width // 2 + 30
+count_rect.right = config.WIDTH - count_rect.width // 2 + 30
 
 # Keep track of the last time the counter was rendered so we won't need to re-render each frame
 last_rendered: int = 0
@@ -406,10 +416,14 @@ if not player.rect:
 # Restart once to initialize the game
 restart(player)
 
+# ===========================================
+# Game loop
+# ===========================================
+
 # Keep the game running:
 while is_running:
     # Get the keys pressed
-    pressed: pg.key.ScancodeWrapper = pg.key.get_pressed()
+    pressed: ScancodeWrapper = pg.key.get_pressed()
 
     # Set the player speed to 0
     player.vx = 0
@@ -431,7 +445,7 @@ while is_running:
         virus_group,
         False,  # The player should not be removed on death
         False,  # Nor should the virus
-        pg.sprite.collide_mask,
+        pg.sprite.collide_mask,  # ty: ignore
     )
 
     # If collision is detected, the player has lost
@@ -444,7 +458,7 @@ while is_running:
         antibac_group,
         True,  # The virus should be removed on contact
         True,  # So should the antibac
-        pg.sprite.collide_mask,
+        pg.sprite.collide_mask,  # ty: ignore
     )
 
     # Update all the sprites
@@ -454,7 +468,7 @@ while is_running:
     exit_group.update()
 
     # Start the drawing process
-    screen.fill(BGCOLOR)
+    screen.fill(config.BGCOLOR)
     virus_group.draw(screen)
     player_group.draw(screen)
     antibac_group.draw(screen)
@@ -472,7 +486,7 @@ while is_running:
 
         # Position the antibac counter
         count_rect.top = count_rect.height // 2
-        count_rect.right = WIDTH - count_rect.width // 2 + 30
+        count_rect.right = config.WIDTH - count_rect.width // 2 + 30
 
     # Draw the current antibac count to the screen
     screen.blit(count_text, count_rect)
@@ -486,7 +500,7 @@ while is_running:
         screen.blit(complete_text, complete_text_rect)
 
     # Tick the clock and update display
-    clock.tick(TARGET_FPS)
+    clock.tick(config.TARGET_FPS)
     pg.display.update()
 
     # Handle events
