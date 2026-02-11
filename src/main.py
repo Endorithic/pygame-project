@@ -18,7 +18,7 @@ from levels import LEVELS, Level
 
 # Set screen dimensions
 WIDTH: int = 800
-HEIGHT: int = 600
+HEIGHT: int = 608
 DIMENSIONS: tuple[int, int] = (WIDTH, HEIGHT)
 
 # Set screen properties
@@ -29,12 +29,19 @@ BGCOLOR: colors.Color = colors.WHITE
 CHARGES_PER_BOTTLE: int = 5
 START_VIRUSES: int = 5
 VIRUSES_PER_LEVEL: int = 3
+VIRUS_MIN_SPEED: int = 1
+VIRUS_MAX_SPEED: int = 5
 
 # Loads all the available themes
 themes: list[tl.Theme] = tl.load_themes()
 
 # Declare the variable for the held theme
 loaded_theme: tl.Theme
+
+# Checks to see that a theme is indeed loaded
+if len(themes) < 1:
+    print("No theme found... Exiting.")
+    exit()
 
 # Prompts the user until a theme is selected
 has_theme: bool = False
@@ -187,7 +194,7 @@ class Player(Sprite):
             level_number += 1
 
             # Reset the level state
-            restart()
+            restart(self)
 
 
 # The virus class
@@ -348,8 +355,8 @@ def restart(player: Player) -> None:
     for i in range(START_VIRUSES + level_number * VIRUSES_PER_LEVEL):
         start_x: int = random.randint(0, WIDTH)
         start_y: int = random.randint(0, HEIGHT)
-        start_vx: int = random.randint(1, 8)
-        start_vy: int = random.randint(1, 8)
+        start_vx: int = random.randint(VIRUS_MIN_SPEED, VIRUS_MAX_SPEED)
+        start_vy: int = random.randint(VIRUS_MIN_SPEED, VIRUS_MAX_SPEED)
 
         virus: Virus = Virus(start_x, start_y, start_vx, start_vy)
         virus_group.add(virus)
