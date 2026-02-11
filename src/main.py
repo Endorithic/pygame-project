@@ -1,6 +1,7 @@
 # Python standard library modules:
 import os
 import random
+from pathlib import Path
 
 # Set environment variable to disable Pygame welcome statement
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
@@ -32,6 +33,9 @@ VIRUSES_PER_LEVEL: int = 3
 # Loads all the available themes
 themes: list[tl.Theme] = tl.load_themes()
 
+# Declare the variable for the held theme
+loaded_theme: tl.Theme
+
 # Prompts the user until a theme is selected
 has_theme: bool = False
 while not has_theme:
@@ -43,12 +47,20 @@ while not has_theme:
     # Prompt the user to select theme
     selected: int = int(input("Select theme: "))
 
+    # If the selected number is valid, load the theme
+    if 0 <= selected < len(themes):
+        loaded_theme: tl.Theme = themes[selected]
+        has_theme = True
+
+# Get the theme asset dictionary
+assets: dict[str, Path] = loaded_theme.assets
+
 # Initialize pygame
 pg.init()
 
 # Create the fonts used in the game
 font_40: Font = pg.font.SysFont("Segoe UI", 40, False, False)
-font_20_b: Font = pg.font.SysFont("Segoe UI", 20, True, False)
+font_30_b: Font = pg.font.SysFont("Segoe UI", 30, True, False)
 
 # Create the window
 screen: Surface = pg.display.set_mode(DIMENSIONS)
@@ -97,7 +109,7 @@ class Player(Sprite):
         Sprite.__init__(self)
 
         # Construct the rect used for the player's hitbox and rendering
-        self.image: Surface = pg.image.load("assets/player.png").convert_alpha()
+        self.image: Surface = pg.image.load(assets["player"]).convert_alpha()
         self.rect: Rect = self.image.get_rect()
         self.rect.x: int = 64
         self.rect.y: int = 32
@@ -175,7 +187,7 @@ class Player(Sprite):
             level_number += 1
 
             # Reset the level state
-            restart()  # noqa # ty: ignore
+            restart()
 
 
 # The virus class
@@ -186,7 +198,7 @@ class Virus(Sprite):
         Sprite.__init__(self)
 
         # Construct the rect used for the virus' hitbox and rendering
-        self.image: Surface = pg.image.load("assets/virus.png").convert_alpha()
+        self.image: Surface = pg.image.load(assets["virus"]).convert_alpha()
         self.rect: Rect = self.image.get_rect()
         self.rect.x: int = x
         self.rect.y: int = y
@@ -258,7 +270,7 @@ class Antibac(Sprite):
         Sprite.__init__(self)
 
         # Load the image and construct the rect
-        self.image: Surface = pg.image.load("assets/antibac.png").convert_alpha()
+        self.image: Surface = pg.image.load(assets["antibac"]).convert_alpha()
         self.rect: Rect = self.image.get_rect()
         self.rect.x: int = x
         self.rect.y: int = y
@@ -272,7 +284,7 @@ class Wall(Sprite):
         Sprite.__init__(self)
 
         # Load the image and construct the rect
-        self.image: Surface = pg.image.load("assets/wall.png").convert_alpha()
+        self.image: Surface = pg.image.load(assets["wall"]).convert_alpha()
         self.rect: Rect = self.image.get_rect()
         self.rect.x: int = x
         self.rect.y: int = y
@@ -286,7 +298,7 @@ class Bottle(Sprite):
         Sprite.__init__(self)
 
         # Load the image and construct the rect
-        self.image: Surface = pg.image.load("assets/bottle.png").convert_alpha()
+        self.image: Surface = pg.image.load(assets["bottle"]).convert_alpha()
         self.rect: Rect = self.image.get_rect()
         self.rect.x: int = x
         self.rect.y: int = y
@@ -300,7 +312,7 @@ class Exit(Sprite):
         Sprite.__init__(self)
 
         # Load the image and construct the rect
-        self.image: Surface = pg.image.load("assets/exit.png").convert_alpha()
+        self.image: Surface = pg.image.load(assets["exit"]).convert_alpha()
         self.rect: Rect = self.image.get_rect()
         self.rect.x: int = x
         self.rect.y: int = y
@@ -366,7 +378,7 @@ def restart(player: Player) -> None:
 
 
 # Render the text for the antibac count
-count_text: Surface = font_20_b.render("Antibac: 0", True, colors.BLACK)
+count_text: Surface = font_30_b.render("Antibac: 0", True, colors.BLACK)
 count_rect: Rect = count_text.get_rect()
 
 # Position the antibac counter
@@ -375,7 +387,6 @@ count_rect.right = WIDTH - count_rect.width // 2 + 30
 
 # Keep track of the last time the counter was rendered so we won't need to re-render each frame
 last_rendered: int = 0
-
 
 # Create the player instance
 player: Player = Player()
@@ -447,7 +458,7 @@ while is_running:
     # If the antibac count changed since last render, render again
     if player.antibac_count != last_rendered:
         # Render the text for the antibac count
-        count_text: Surface = font_20_b.render(
+        count_text: Surface = font_30_b.render(
             f"Antibac: {player.antibac_count}", True, colors.BLACK
         )
         count_rect: Rect = count_text.get_rect()

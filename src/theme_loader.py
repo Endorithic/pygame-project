@@ -7,6 +7,9 @@ NEEDED_ASSETS: list[str] = ["antibac", "bottle", "exit", "player", "virus", "wal
 
 # Class representing a 'theme'.
 class Theme:
+    # Declare the member variables for linter support
+    __slots__: tuple[str, ...] = ("assets", "is_valid", "missing", "name")
+
     # Class initializer
     def __init__(self, theme_path: Path) -> None:
         # If the provided path is not a directory, throw an error
