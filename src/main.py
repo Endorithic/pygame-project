@@ -67,7 +67,7 @@ font_40: Font = pg.font.SysFont("Segoe UI", 40, False, False)
 font_30_b: Font = pg.font.SysFont("Segoe UI", 30, True, False)
 
 # Create the window
-screen: Surface = pg.display.set_mode(config.DIMENSIONS)
+screen: Surface = pg.display.set_mode(config.DIMENSIONS, pg.SCALED)
 pg.display.set_caption("Viral Breakout")
 
 # Create the clock to keep track of framerate
@@ -514,10 +514,10 @@ while is_running:
 
         # Runs if the player releases a key
         if event.type == pg.KEYUP:
-            # Only runs if the player has a non-zero antibac count
-            if player.antibac_count > 0 and not gameover:
-                # If the key released is 'L', place antibac
-                if event.key == pg.K_l:
+            # If the key released is 'L', place antibac
+            if event.key == pg.K_l:
+                # Only runs if the player has a non-zero antibac count
+                if player.antibac_count > 0 and not gameover:
                     antibac: Antibac = Antibac(int(player.rect.x), int(player.rect.y))
                     antibac_group.add(antibac)
 
@@ -525,9 +525,26 @@ while is_running:
                     player.antibac_count -= 1
 
             # If the player pressed 'N', start a new game
-            if event.key == pg.K_n:
+            elif event.key == pg.K_n:
                 level_number = 0
                 restart(player)
+
+            # If the player pressed 'F11', toggle fullscreen
+            elif event.key == pg.K_F11:
+                # Checks to see if the screen is currently fullscreen
+                is_fullscreen: int = screen.get_flags() & pg.FULLSCREEN
+
+                # Toggles the window size
+                if is_fullscreen:
+                    screen = pg.display.set_mode(config.DIMENSIONS, pg.SCALED)
+                else:
+                    screen = pg.display.set_mode(
+                        config.DIMENSIONS, pg.SCALED | pg.FULLSCREEN
+                    )
+
+            # If the player pressed 'ESC', exit the game
+            elif event.key == pg.K_ESCAPE:
+                is_running = False
 
 # Uninitialize pygame
 pg.quit()
