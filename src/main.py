@@ -2,7 +2,7 @@
 # Module importing
 # ===========================================
 
-# Python standard library modules:
+# Python standard library modules
 import os
 import random
 from pathlib import Path
@@ -10,7 +10,7 @@ from pathlib import Path
 # Set environment variable to disable Pygame welcome statement
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 
-# Third party modules:
+# Third party modules
 import pygame as pg
 from pygame import Clock, Font, Rect, Surface
 from pygame.key import ScancodeWrapper
@@ -73,6 +73,11 @@ pg.display.set_caption("Viral Breakout")
 # Create the clock to keep track of framerate
 clock: Clock = Clock()
 
+# Cache the images to avoid repeated disk reads
+images: dict[str, Surface] = {}
+for key, val in assets.items():
+    images[key] = pg.image.load(val).convert_alpha()
+
 # Create variables to keep track of the current state
 is_running: bool = True
 gameover: bool = False
@@ -117,7 +122,7 @@ class Player(Sprite):
         super().__init__()
 
         # Construct the rect used for the player's hitbox and rendering
-        self.image: Surface = pg.image.load(assets["player"]).convert_alpha()
+        self.image: Surface = images["player"]
         self.rect: Rect = self.image.get_rect()
         self.rect.x: int = 64
         self.rect.y: int = 32
@@ -206,7 +211,7 @@ class Virus(Sprite):
         super().__init__()
 
         # Construct the rect used for the virus' hitbox and rendering
-        self.image: Surface = pg.image.load(assets["virus"]).convert_alpha()
+        self.image: Surface = images["virus"]
         self.rect: Rect = self.image.get_rect()
         self.rect.x: int = x
         self.rect.y: int = y
@@ -278,7 +283,7 @@ class Antibac(Sprite):
         super().__init__()
 
         # Load the image and construct the rect
-        self.image: Surface = pg.image.load(assets["antibac"]).convert_alpha()
+        self.image: Surface = images["antibac"]
         self.rect: Rect = self.image.get_rect()
         self.rect.x: int = x
         self.rect.y: int = y
@@ -292,7 +297,7 @@ class Wall(Sprite):
         super().__init__()
 
         # Load the image and construct the rect
-        self.image: Surface = pg.image.load(assets["wall"]).convert_alpha()
+        self.image: Surface = images["wall"]
         self.rect: Rect = self.image.get_rect()
         self.rect.x: int = x
         self.rect.y: int = y
@@ -306,7 +311,7 @@ class Bottle(Sprite):
         super().__init__()
 
         # Load the image and construct the rect
-        self.image: Surface = pg.image.load(assets["bottle"]).convert_alpha()
+        self.image: Surface = images["bottle"]
         self.rect: Rect = self.image.get_rect()
         self.rect.x: int = x
         self.rect.y: int = y
@@ -320,7 +325,7 @@ class Exit(Sprite):
         super().__init__()
 
         # Load the image and construct the rect
-        self.image: Surface = pg.image.load(assets["exit"]).convert_alpha()
+        self.image: Surface = images["exit"]
         self.rect: Rect = self.image.get_rect()
         self.rect.x: int = x
         self.rect.y: int = y
