@@ -478,6 +478,9 @@ while is_running:
 
     # If the antibac count changed since last render, render again
     if player.antibac_count != last_rendered:
+        # Update the flag
+        last_rendered = player.antibac_count
+
         # Render the text for the antibac count
         count_text: Surface = font_30_b.render(
             f"Antibac: {player.antibac_count}", True, colors.BLACK
