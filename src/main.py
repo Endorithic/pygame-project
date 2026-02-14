@@ -114,7 +114,7 @@ class Player(Sprite):
     # Class initializer
     def __init__(self) -> None:
         # Initialize the parent class attributes
-        Sprite.__init__(self)
+        super().__init__()
 
         # Construct the rect used for the player's hitbox and rendering
         self.image: Surface = pg.image.load(assets["player"]).convert_alpha()
@@ -203,7 +203,7 @@ class Virus(Sprite):
     # Class initializer
     def __init__(self, x: int, y: int, vx: int, vy: int) -> None:
         # Initialize the parent class attributes
-        Sprite.__init__(self)
+        super().__init__()
 
         # Construct the rect used for the virus' hitbox and rendering
         self.image: Surface = pg.image.load(assets["virus"]).convert_alpha()
@@ -275,7 +275,7 @@ class Antibac(Sprite):
     # Class initializer
     def __init__(self, x: int, y: int) -> None:
         # Initializes the parent class attributes
-        Sprite.__init__(self)
+        super().__init__()
 
         # Load the image and construct the rect
         self.image: Surface = pg.image.load(assets["antibac"]).convert_alpha()
@@ -289,7 +289,7 @@ class Wall(Sprite):
     # Class initializer
     def __init__(self, x: int, y: int) -> None:
         # Initialize the parent class attributes
-        Sprite.__init__(self)
+        super().__init__()
 
         # Load the image and construct the rect
         self.image: Surface = pg.image.load(assets["wall"]).convert_alpha()
@@ -303,7 +303,7 @@ class Bottle(Sprite):
     # Class initializer
     def __init__(self, x: int, y: int) -> None:
         # Initialize the parent class attributes
-        Sprite.__init__(self)
+        super().__init__()
 
         # Load the image and construct the rect
         self.image: Surface = pg.image.load(assets["bottle"]).convert_alpha()
@@ -317,7 +317,7 @@ class Exit(Sprite):
     # Class initializer
     def __init__(self, x: int, y: int) -> None:
         # Initialize the parent class attributes
-        Sprite.__init__(self)
+        super().__init__()
 
         # Load the image and construct the rect
         self.image: Surface = pg.image.load(assets["exit"]).convert_alpha()
