@@ -12,22 +12,35 @@ os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 
 # Third party modules
 import pygame as pg
-from pygame import Clock, Font, Rect, Surface
+from pygame import Clock, Font, Mask, Rect, Surface
 from pygame.key import ScancodeWrapper
 from pygame.sprite import Group, Sprite
 
 # Project modules
 import colors
 import config
-from levels import LEVELS, Level
+from levels import Level, read_levels
 from theme_loader import Theme, load_themes
+
+# ===========================================
+# Preloading and initialization
+# ===========================================
+
+# Defines a variable that stores the path of the project root
+project_root: Path = Path(__file__).resolve().parent.parent
 
 # ===========================================
 # Theme loading
 # ===========================================
 
 # Loads all the available themes
-themes: list[Theme] = load_themes()
+try:
+    themes: list[Theme] = load_themes(project_root / "themes")
+
+# If loading the themes failed, exit the program
+except (FileNotFoundError, ValueError) as e:
+    print(f"Error: {str(e)}")
+    exit(1)
 
 # Declare the variable for the held theme
 loaded_theme: Theme
@@ -37,20 +50,27 @@ if len(themes) < 1:
     print("No theme found... Exiting.")
     exit()
 
+# Print all the themes
+print("THEME SELECTOR")
+for i, theme in enumerate(themes):
+    print(f"{i}: {theme.name}")
+
 # Prompts the user until a theme is selected
 while True:
-    # Print all the themes
-    print("THEME SELECTOR")
-    for i, theme in enumerate(themes):
-        print(f"{i}: {theme.name}")
-
     # Prompt the user to select theme
-    selected: int = int(input("Select theme: "))
+    try:
+        selected: int = int(input("Select theme: "))
+
+    # If the input failed, try again
+    except ValueError:
+        continue
 
     # If the selected number is valid, load the theme
     if 0 <= selected < len(themes):
         loaded_theme: Theme = themes[selected]
         break
+
+    print("Invalid input.", end=" ")
 
 # Get the theme asset dictionary
 assets: dict[str, Path] = loaded_theme.assets
@@ -76,7 +96,12 @@ clock: Clock = Clock()
 # Cache the images to avoid repeated disk reads
 images: dict[str, Surface] = {}
 for key, val in assets.items():
-    images[key] = pg.image.load(val).convert_alpha()
+    original_image: Surface = pg.image.load(val).convert_alpha()
+
+    # Scales the image to the specified sprite size.
+    images[key] = pg.transform.scale(
+        original_image, (config.SPRITE_SIZE, config.SPRITE_SIZE)
+    )
 
 # Create variables to keep track of the current state
 is_running: bool = True
@@ -86,7 +111,13 @@ game_finished: bool = False
 level_number: int = 0
 
 # Declare the levels used in the game
-levels: list[Level] = LEVELS
+try:
+    levels: list[Level] = read_levels(project_root / "levels")
+
+# If loading the levels failed, exit the program
+except (FileNotFoundError, ValueError) as e:
+    print(f"Error: {str(e)}")
+    exit(1)
 
 # Create sprite groups for the different classes
 virus_group: Group[Sprite] = Group()
@@ -106,7 +137,7 @@ level_complete_rect: Rect = level_complete_text.get_rect()
 level_complete_rect.center = (config.WIDTH // 2, config.HEIGHT // 2)
 
 complete_text: Surface = font_40.render("Victory! :3", True, colors.BLUE)
-complete_text_rect: Rect = level_complete_text.get_rect()
+complete_text_rect: Rect = complete_text.get_rect()
 complete_text_rect.center = (config.WIDTH // 2, config.HEIGHT // 2)
 
 # ===========================================
@@ -123,6 +154,7 @@ class Player(Sprite):
 
         # Construct the rect used for the player's hitbox and rendering
         self.image: Surface = images["player"]
+        self.mask: Mask = pg.mask.from_surface(self.image)
         self.rect: Rect = self.image.get_rect()
         self.rect.x: int = 64
         self.rect.y: int = 32
@@ -164,7 +196,7 @@ class Player(Sprite):
             else:
                 self.rect.left = collision_rect.right
 
-        # Move in the x direction and calculate hits
+        # Move in the y direction and calculate hits
         self.rect.y += self.vy
         wall_hit_list: list[Sprite] = pg.sprite.spritecollide(self, wall_group, False)
 
@@ -212,6 +244,7 @@ class Virus(Sprite):
 
         # Construct the rect used for the virus' hitbox and rendering
         self.image: Surface = images["virus"]
+        self.mask: Mask = pg.mask.from_surface(self.image)
         self.rect: Rect = self.image.get_rect()
         self.rect.x: int = x
         self.rect.y: int = y
@@ -247,7 +280,11 @@ class Virus(Sprite):
             # Reverse direction
             self.vx *= -1
 
-        # Move in the x direction and calculate hits
+        # Check for OOB ONLY if no wall collision occurred in x-direction
+        elif self.rect.left < 0 or self.rect.right > config.WIDTH:
+            self.vx *= -1
+
+        # Move in the y direction and calculate hits
         self.rect.y += self.vy
         wall_hit_list: list[Sprite] = pg.sprite.spritecollide(self, wall_group, False)
 
@@ -268,10 +305,8 @@ class Virus(Sprite):
             # Reverse direction
             self.vy *= -1
 
-        # Check for OOB
-        if self.rect.x + 32 > config.WIDTH or self.rect.x < 0:
-            self.vx *= -1
-        if self.rect.y + 32 > config.HEIGHT or self.rect.y < 0:
+        # Check for OOB only if no wall collision occurred in y-direction
+        elif self.rect.top < 0 or self.rect.bottom > config.HEIGHT:
             self.vy *= -1
 
 
@@ -284,6 +319,7 @@ class Antibac(Sprite):
 
         # Load the image and construct the rect
         self.image: Surface = images["antibac"]
+        self.mask: Mask = pg.mask.from_surface(self.image)
         self.rect: Rect = self.image.get_rect()
         self.rect.x: int = x
         self.rect.y: int = y
@@ -298,6 +334,7 @@ class Wall(Sprite):
 
         # Load the image and construct the rect
         self.image: Surface = images["wall"]
+        self.mask: Mask = pg.mask.from_surface(self.image)
         self.rect: Rect = self.image.get_rect()
         self.rect.x: int = x
         self.rect.y: int = y
@@ -312,6 +349,7 @@ class Bottle(Sprite):
 
         # Load the image and construct the rect
         self.image: Surface = images["bottle"]
+        self.mask = pg.mask.from_surface(self.image)
         self.rect: Rect = self.image.get_rect()
         self.rect.x: int = x
         self.rect.y: int = y
@@ -326,6 +364,7 @@ class Exit(Sprite):
 
         # Load the image and construct the rect
         self.image: Surface = images["exit"]
+        self.mask: Mask = pg.mask.from_surface(self.image)
         self.rect: Rect = self.image.get_rect()
         self.rect.x: int = x
         self.rect.y: int = y
@@ -350,22 +389,17 @@ def restart(player: Player) -> None:
     level_complete = False
 
     # Clear all the sprites
-    for virus in virus_group:
-        virus.kill()
-    for antibac in antibac_group:
-        antibac.kill()
-    for bottle in bottle_group:
-        bottle.kill()
-    for wall in wall_group:
-        wall.kill()
-    for exit in exit_group:
-        exit.kill()
+    virus_group.empty()
+    antibac_group.empty()
+    bottle_group.empty()
+    wall_group.empty()
+    exit_group.empty()
     player.reset()
 
     # Generate the viruses
     for i in range(config.START_VIRUSES + level_number * config.VIRUSES_PER_LEVEL):
-        start_x: int = random.randint(0, config.WIDTH)
-        start_y: int = random.randint(0, config.HEIGHT)
+        start_x: int = random.randint(0, config.WIDTH - config.SPRITE_SIZE)
+        start_y: int = random.randint(0, config.HEIGHT - config.SPRITE_SIZE)
         start_vx: int = random.randint(config.VIRUS_MIN_SPEED, config.VIRUS_MAX_SPEED)
         start_vy: int = random.randint(config.VIRUS_MIN_SPEED, config.VIRUS_MAX_SPEED)
 
@@ -436,13 +470,13 @@ while is_running:
 
     # Handle keyboard input for movement
     if pressed[pg.K_w] and not gameover:
-        player.vy = -3
+        player.vy = -config.PLAYER_SPEED
     if pressed[pg.K_s] and not gameover:
-        player.vy = 3
+        player.vy = config.PLAYER_SPEED
     if pressed[pg.K_a] and not gameover:
-        player.vx = -3
+        player.vx = -config.PLAYER_SPEED
     if pressed[pg.K_d] and not gameover:
-        player.vx = 3
+        player.vx = config.PLAYER_SPEED
 
     # Check for collision with virus
     player_hit: dict[Sprite, list[Sprite]] = pg.sprite.groupcollide(

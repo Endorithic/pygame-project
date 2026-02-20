@@ -41,29 +41,32 @@ class Theme:
 
 
 # Function that loads all the available themes
-def load_themes() -> list[Theme]:
-    # Get the theme directory path
-    theme_path: Path = Path(".") / "themes"
+def load_themes(theme_path: Path) -> list[Theme]:
+    # If the level directory does not exist, raise an error
+    if not theme_path.exists():
+        raise FileNotFoundError("Could not find 'themes' directory.")
+
+    # If the level directory isn't a directory, raise an error
+    if not theme_path.is_dir():
+        raise ValueError("Path 'theme_path' is not a directory.")
 
     # Initialize a list that contains the themes
     themes: list[Theme] = []
 
     # Iterate over the themes and add them to the theme list
     for theme_dir in theme_path.iterdir():
+        # If the entry is not a directory, i.e. not a theme, skip
+        if not theme_dir.is_dir():
+            continue
+
+        # Construct a theme object from the directory
         theme: Theme = Theme(theme_dir)
 
-        # If the theme is invalid, skip it
+        # If the theme is invalid, skip it.
         if not theme.is_valid:
             continue
 
+        # Otherwise add it.
         themes.append(theme)
 
     return themes
-
-
-# Debug
-if __name__ == "__main__":
-    themes: list[Theme] = load_themes()
-    for theme in themes:
-        print(theme.name, theme.is_valid)
-        print(theme.missing)
