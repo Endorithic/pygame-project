@@ -6,6 +6,7 @@
 import os
 import random
 from pathlib import Path
+from typing import cast
 
 # Set environment variable to disable Pygame welcome statement
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
@@ -106,7 +107,6 @@ for key, val in assets.items():
 # Create variables to keep track of the current state
 is_running: bool = True
 gameover: bool = False
-level_complete: bool = False
 game_finished: bool = False
 level_number: int = 0
 
@@ -131,10 +131,6 @@ exit_group: Group[Sprite] = Group()
 gameover_text: Surface = font_40.render("Game over.", True, colors.RED)
 gameover_rect: Rect = gameover_text.get_rect()
 gameover_rect.center = (config.WIDTH // 2, config.HEIGHT // 2)
-
-level_complete_text: Surface = font_40.render("Level complete!", True, colors.GREEN)
-level_complete_rect: Rect = level_complete_text.get_rect()
-level_complete_rect.center = (config.WIDTH // 2, config.HEIGHT // 2)
 
 complete_text: Surface = font_40.render("Victory! :3", True, colors.BLUE)
 complete_text_rect: Rect = complete_text.get_rect()
@@ -166,17 +162,78 @@ class Player(Sprite):
         # Tracks the amount of antibac charges the player has
         self.antibac_count: int = 0
 
+        # Tracks the wall currently being held
+        self.held_wall: Wall | None = None
+
+        # Tracks the last direction the player moved (facing direction)
+        self.facing_x: int = 1
+        self.facing_y: int = 0
+
+        # Tracks the invincibility period end time
+        self.invincible_until: int = 0
+
+    # Checks whether the player is currently invinvible
+    @property
+    def is_invincible(self) -> bool:
+        return pg.time.get_ticks() < self.invincible_until
+
     # Resets the player state and attributes
     def reset(self) -> None:
         self.vx = 0
         self.vy = 0
         self.antibac_count = 0
+        self.held_wall = None
+        self.facing_x = 1
+        self.facing_y = 0
+        self.invincible_until = pg.time.get_ticks() + config.INVINCIBILITY_DURATION
 
     # Updates the player
     def update(self) -> None:
-        # If the player instance is malformed, throw an error
+        # If the player does not have a rect, throw an error
         if not self.rect:
             raise RuntimeError("Player does not have a valid 'rect' attribute.")
+
+        # Update invincibility visual indicator
+        if self.is_invincible:
+            # Flashing or lowered alpha
+            # If the player does not have an image, throw an error
+            if not self.image:
+                raise RuntimeError("Player does not have a valid 'image' attribute.")
+            self.image.set_alpha(128)
+        else:
+            # If the player does not have an image, throw an error
+            if not self.image:
+                raise RuntimeError("Player does not have a valid 'image' attribute.")
+            self.image.set_alpha(255)
+
+        # Update the position of the held wall if there is one
+        if self.held_wall:
+            # If the player does not have a rect, throw an error
+            if not self.held_wall.rect:
+                raise RuntimeError("Player does not have a valid 'rect' attribute.")
+
+            # Snap it to the position in front of the player aligned to the grid
+            target_x = (self.rect.centerx // 32 + self.facing_x) * 32
+            target_y = (self.rect.centery // 32 + self.facing_y) * 32
+
+            # Keep the held wall within screen boundaries
+            target_x = max(0, min(target_x, config.WIDTH - 32))
+            target_y = max(0, min(target_y, config.HEIGHT - 32))
+
+            self.held_wall.rect.x = target_x
+            self.held_wall.rect.y = target_y
+
+        # Update facing direction if moving
+        if self.vx != 0:
+            self.facing_x = 1 if self.vx > 0 else -1
+            self.facing_y = 0
+        if self.vy != 0:
+            self.facing_y = 1 if self.vy > 0 else -1
+            # If moving diagonally, we might want to keep horizontal facing
+            # but for simplicity, the last non-zero velocity component wins
+            # or we can just set both if both are non-zero.
+            if self.vx == 0:
+                self.facing_x = 0
 
         # Move in the x direction and calculate hits
         self.rect.x += self.vx
@@ -214,6 +271,17 @@ class Player(Sprite):
             else:
                 self.rect.top = collision_rect.bottom
 
+        # Keep the player within the screen boundaries
+        if self.rect.left < 0:
+            self.rect.left = 0
+        elif self.rect.right > config.WIDTH:
+            self.rect.right = config.WIDTH
+
+        if self.rect.top < 0:
+            self.rect.top = 0
+        elif self.rect.bottom > config.HEIGHT:
+            self.rect.bottom = config.HEIGHT
+
         # Checks to see if the player has collided with a bottle of antibac and adds 5 charges if so
         bottle_hit_list: list[Sprite] = pg.sprite.spritecollide(
             self, bottle_group, True
@@ -223,12 +291,11 @@ class Player(Sprite):
 
         # Checks to see if player collided with an exit
         exit_hit_list: list[Sprite] = pg.sprite.spritecollide(self, exit_group, True)
-        if exit_hit_list:
+        if exit_hit_list and not gameover:
             # Get the global level state variables
-            global level_complete, level_number
+            global level_number
 
             # Set the global level states to proceed to next level
-            level_complete = True
             level_number += 1
 
             # Reset the level state
@@ -382,11 +449,11 @@ def restart(player: Player) -> None:
         raise RuntimeError("Player does not have a valid 'rect' attribute.")
 
     # Get the global variables
-    global gameover, level_complete, level_number
+    global gameover, level_number, game_finished
 
-    # Set the gloal variables
+    # Set the global variables
     gameover = False
-    level_complete = False
+    game_finished = False
 
     # Clear all the sprites
     virus_group.empty()
@@ -396,17 +463,7 @@ def restart(player: Player) -> None:
     exit_group.empty()
     player.reset()
 
-    # Generate the viruses
-    for i in range(config.START_VIRUSES + level_number * config.VIRUSES_PER_LEVEL):
-        start_x: int = random.randint(0, config.WIDTH - config.SPRITE_SIZE)
-        start_y: int = random.randint(0, config.HEIGHT - config.SPRITE_SIZE)
-        start_vx: int = random.randint(config.VIRUS_MIN_SPEED, config.VIRUS_MAX_SPEED)
-        start_vy: int = random.randint(config.VIRUS_MIN_SPEED, config.VIRUS_MAX_SPEED)
-
-        virus: Virus = Virus(start_x, start_y, start_vx, start_vy)
-        virus_group.add(virus)
-
-    # Load the level objects from the level array
+    # Load the level objects from the level array if not finished
     if level_number < len(levels):
         for y, row in enumerate(levels[level_number]):
             for x, value in enumerate(row):
@@ -423,9 +480,47 @@ def restart(player: Player) -> None:
                     exit: Exit = Exit(x * 32, y * 32)
                     exit_group.add(exit)
 
+        # Generate the viruses ONLY if the game isn't finished
+        for i in range(config.START_VIRUSES + level_number * config.VIRUSES_PER_LEVEL):
+            # Ensure viruses don't spawn on top of the player or walls
+            spawn_attempts = 0
+            while spawn_attempts < 100:
+                spawn_attempts += 1
+                start_x: int = random.randint(0, config.WIDTH - config.SPRITE_SIZE)
+                start_y: int = random.randint(0, config.HEIGHT - config.SPRITE_SIZE)
+
+                # Temporary rect to check for overlap
+                temp_rect = pg.Rect(
+                    start_x, start_y, config.SPRITE_SIZE, config.SPRITE_SIZE
+                )
+                
+                # Check for overlap with player or any wall
+                if temp_rect.colliderect(player.rect):
+                    continue
+                
+                if any(wall.rect.colliderect(temp_rect) for wall in wall_group if wall.rect):
+                    continue
+                    
+                break
+            
+            # Skip this virus if a spawn position couldn't be found
+            if spawn_attempts >= 100:
+                continue
+
+            # Randomize direction as well
+            start_vx: int = random.randint(config.VIRUS_MIN_SPEED, config.VIRUS_MAX_SPEED)
+            start_vy: int = random.randint(config.VIRUS_MIN_SPEED, config.VIRUS_MAX_SPEED)
+            
+            if random.random() < 0.5:
+                start_vx *= -1
+            if random.random() < 0.5:
+                start_vy *= -1
+
+            virus: Virus = Virus(start_x, start_y, start_vx, start_vy)
+            virus_group.add(virus)
+
     # If level_number is equal to the level array length, the player has completed the game
     else:
-        global game_finished
         game_finished = True
 
 
@@ -475,14 +570,15 @@ while is_running:
     player.vy = 0
 
     # Handle keyboard input for movement
-    if pressed[pg.K_w] and not gameover:
-        player.vy = -config.PLAYER_SPEED
-    if pressed[pg.K_s] and not gameover:
-        player.vy = config.PLAYER_SPEED
-    if pressed[pg.K_a] and not gameover:
-        player.vx = -config.PLAYER_SPEED
-    if pressed[pg.K_d] and not gameover:
-        player.vx = config.PLAYER_SPEED
+    if not (gameover or game_finished):
+        if pressed[pg.K_w]:
+            player.vy = -config.PLAYER_SPEED
+        if pressed[pg.K_s]:
+            player.vy = config.PLAYER_SPEED
+        if pressed[pg.K_a]:
+            player.vx = -config.PLAYER_SPEED
+        if pressed[pg.K_d]:
+            player.vx = config.PLAYER_SPEED
 
     # Check for collision with virus
     player_hit: dict[Sprite, list[Sprite]] = pg.sprite.groupcollide(
@@ -494,7 +590,7 @@ while is_running:
     )
 
     # If collision is detected, the player has lost
-    if player_hit and not gameover:
+    if player_hit and not gameover and not player.is_invincible:
         gameover = True
 
     # Check for virus collision with antibac
@@ -520,6 +616,15 @@ while is_running:
     exit_group.draw(screen)
     bottle_group.draw(screen)
     wall_group.draw(screen)
+
+    # Draw the held wall if there is one
+    if held_wall := player.held_wall:
+        # If the held wall does not have an image and a rect, throw an error
+        if not (held_wall.image and held_wall.rect):
+            raise RuntimeError(
+                "Held wall does not have an 'image' and 'rect' attribute."
+            )
+        screen.blit(held_wall.image, held_wall.rect)
 
     # If the antibac count changed since last render, render again
     if player.antibac_count != last_rendered:
@@ -586,6 +691,47 @@ while is_running:
 
                     # Decrement the antibac counter
                     player.antibac_count -= 1
+
+            # If the player pressed 'K', pick up or drop a wall
+            elif event.key == pg.K_k:
+                # If carrying a wall, drop it
+                if held_wall := player.held_wall:
+                    # Ensure the held wall has a 'rect' attribute
+                    if not held_wall.rect:
+                        raise RuntimeError(
+                            "Held wall does not have a valid 'rect' attribute."
+                        )
+
+                    # Check if the drop position is occupied by another wall OR the player
+                    occupied = any(
+                        wall.rect.colliderect(held_wall.rect)
+                        for wall in wall_group
+                        if wall.rect
+                    ) or player.rect.colliderect(held_wall.rect)
+
+                    if not occupied:
+                        wall_group.add(player.held_wall)
+                        player.held_wall = None
+
+                # Otherwise, attempt to pick up a nearby wall
+                elif not gameover:
+                    # Search for walls exactly one grid square in front of the player
+                    search_rect: Rect = cast(Rect, player.rect.copy())
+                    search_rect.x = (player.rect.centerx // 32 + player.facing_x) * 32
+                    search_rect.y = (player.rect.centery // 32 + player.facing_y) * 32
+
+                    # Gather all the walls in the search area
+                    nearby_walls: list[Wall] = [
+                        cast(Wall, wall)
+                        for wall in wall_group
+                        if wall.rect and search_rect.colliderect(wall.rect)
+                    ]
+
+                    # Pick up the first wall found
+                    if nearby_walls:
+                        wall: Wall = nearby_walls[0]
+                        wall_group.remove(wall)
+                        player.held_wall = wall
 
             # If the player pressed 'N', start a new game
             elif event.key == pg.K_n:
