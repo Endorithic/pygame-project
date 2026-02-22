@@ -438,11 +438,17 @@ count_text: Surface = font_30_b.render("Antibac: 0", True, colors.BLACK)
 count_rect: Rect = count_text.get_rect()
 
 # Position the antibac counter
-count_rect.top = count_rect.height // 2
-count_rect.right = config.WIDTH - count_rect.width // 2 + 30
+count_rect.topright = (config.WIDTH - 10, 10)
 
 # Keep track of the last time the counter was rendered so we won't need to re-render each frame
 last_rendered: int = 0
+
+# Initialize clock display variables
+start_ticks: int = pg.time.get_ticks()
+last_second: int = -1
+clock_text: Surface = font_30_b.render("Time: 00:00", True, colors.BLACK)
+clock_rect: Rect = clock_text.get_rect()
+clock_rect.topleft = (10, 10)
 
 # Create the player instance
 player: Player = Player()
@@ -527,11 +533,29 @@ while is_running:
         count_rect: Rect = count_text.get_rect()
 
         # Position the antibac counter
-        count_rect.top = count_rect.height // 2
-        count_rect.right = config.WIDTH - count_rect.width // 2 + 30
+        count_rect.topright = (config.WIDTH - 10, 10)
 
     # Draw the current antibac count to the screen
     screen.blit(count_text, count_rect)
+
+    # Calculate and display the elapsed time
+    if not (gameover or game_finished):
+        current_ticks: int = pg.time.get_ticks()
+        seconds: int = (current_ticks - start_ticks) // 1000
+
+        # Only re-render if the second changed
+        if seconds != last_second:
+            last_second = seconds
+            minutes: int = seconds // 60
+            rem_seconds: int = seconds % 60
+            clock_text = font_30_b.render(
+                f"Time: {minutes:02}:{rem_seconds:02}", True, colors.BLACK
+            )
+            clock_rect = clock_text.get_rect()
+            clock_rect.topleft = (10, 10)
+
+    # Draw the clock to the screen
+    screen.blit(clock_text, clock_rect)
 
     # If the game is over, show the gameover text
     if gameover:
@@ -566,6 +590,8 @@ while is_running:
             # If the player pressed 'N', start a new game
             elif event.key == pg.K_n:
                 level_number = 0
+                start_ticks = pg.time.get_ticks()
+                last_second = -1
                 restart(player)
 
             # If the player pressed 'F11', toggle fullscreen
