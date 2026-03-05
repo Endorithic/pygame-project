@@ -28,3 +28,5 @@ is tested and confirmed to work as intended.
 - Movement: `WASD`
 - Place antibac: `L`
 - Restart: `N`
+- Place wall: `K`
+- Toggle fullscreen: `F11`
